@@ -2,7 +2,10 @@ import { SatarkLayout } from "@/components/SatarkLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { InvestigationService } from "@/services/investigationService";
+import { useApp } from "@/context/AppContext";
+import { AIPipelinePanel } from "@/components/AIPipelinePanel";
 import {
   Upload,
   CheckCircle,
@@ -42,12 +45,20 @@ const mockAnalysis: AnalysisResult = {
 };
 
 export default function CounterfeitDetection() {
+  const { analysisSessions, getAnalysisSession } = useApp();
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
     null
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisInvestigationId, setAnalysisInvestigationId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+
+  const activeSession = useMemo(
+    () => analysisInvestigationId ? getAnalysisSession(analysisInvestigationId) : analysisSessions.find((session) => session.status !== "completed"),
+    [analysisSessions, analysisInvestigationId, getAnalysisSession]
+  );
 
   const handleImageUpload = (side: "front" | "back", file: File) => {
     const reader = new FileReader();
@@ -64,16 +75,25 @@ export default function CounterfeitDetection() {
 
   const handleAnalyze = async () => {
     if (!frontImage || !backImage) {
-      alert("Please upload both front and back images");
+      setStatusMessage("Upload both the front and back note images to start analysis.");
       return;
     }
 
     setIsAnalyzing(true);
-    // Simulate API call
-    setTimeout(() => {
+    setStatusMessage("Evidence uploaded. Running currency analysis pipeline...");
+    try {
+      const result = await InvestigationService.analyzeCounterfeit({
+        denomination: mockAnalysis.denomination,
+        noteSummary: `Suspected counterfeit note analysis for ${mockAnalysis.denomination}. Security thread, watermark, serial number, texture, and color checks all completed.`,
+        evidenceName: "Counterfeit_Note_Front_Back.jpg",
+      });
+      setAnalysisInvestigationId(result.investigation.id);
+      setStatusMessage("AI pipeline is validating the evidence and fusing risk signals...");
+      await new Promise((resolve) => setTimeout(resolve, 900));
       setAnalysisResult(mockAnalysis);
+    } finally {
       setIsAnalyzing(false);
-    }, 2000);
+    }
   };
 
   const getRiskColor = (score: number) => {
@@ -113,9 +133,8 @@ export default function CounterfeitDetection() {
         </div>
         <div className="w-full bg-muted rounded-full h-2">
           <div
-            className={`h-2 rounded-full ${
-              detected ? "bg-green-500" : "bg-red-500"
-            }`}
+            className={`h-2 rounded-full ${detected ? "bg-green-500" : "bg-red-500"
+              }`}
             style={{ width: `${confidence}%` }}
           />
         </div>
@@ -240,6 +259,17 @@ export default function CounterfeitDetection() {
           >
             {isAnalyzing ? "Analyzing..." : "Analyze Currency"}
           </Button>
+        )}
+
+        {statusMessage && (
+          <Card className="p-4 border-dashed border-border bg-muted/20">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Live Status</p>
+            <p className="text-sm text-foreground">{statusMessage}</p>
+          </Card>
+        )}
+
+        {activeSession && (
+          <AIPipelinePanel session={activeSession} />
         )}
 
         {/* Analysis Results */}

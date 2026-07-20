@@ -24,6 +24,11 @@ export default function CrimeGeospatial() {
       ? locations
       : locations.filter((l) => l.state === filterDistrict);
 
+  const visibleLocations =
+    filterRisk === "all"
+      ? filteredLocations
+      : filteredLocations.filter((location) => location.risk === filterRisk);
+
   const getCasesByLocation = (city: string) => {
     return investigations.filter((inv) => inv.location?.city === city).length;
   };
@@ -140,7 +145,7 @@ export default function CrimeGeospatial() {
                 {/* Location Markers */}
                 <div className="relative z-10 w-full h-full flex items-center justify-center">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {filteredLocations.map((location) => {
+                    {visibleLocations.map((location) => {
                       const caseCount = getCasesByLocation(location.city);
                       const shouldShow =
                         filterRisk === "all" || filterRisk === location.risk;
@@ -151,11 +156,10 @@ export default function CrimeGeospatial() {
                         <div
                           key={location.city}
                           onClick={() => setSelectedLocation(location)}
-                          className={`p-3 rounded-lg cursor-pointer smooth-transition border-2 ${
-                            selectedLocation.city === location.city
+                          className={`p-3 rounded-lg cursor-pointer smooth-transition border-2 ${selectedLocation.city === location.city
                               ? "border-primary bg-white shadow-lg"
                               : "border-transparent hover:border-primary/50 bg-white/80"
-                          }`}
+                            }`}
                         >
                           {/* Heatmap Dot */}
                           <div className="flex items-center gap-3 mb-2">
@@ -298,13 +302,13 @@ export default function CrimeGeospatial() {
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <span className="text-sm text-muted-foreground">Total Hotspots</span>
                   <span className="text-2xl font-bold text-primary">
-                    {filteredLocations.length}
+                    {visibleLocations.length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <span className="text-sm text-muted-foreground">Critical</span>
                   <span className="text-2xl font-bold text-red-600">
-                    {filteredLocations.filter((l) => l.risk === "critical").length}
+                    {visibleLocations.filter((l) => l.risk === "critical").length}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -400,7 +404,7 @@ export default function CrimeGeospatial() {
                 </tr>
               </thead>
               <tbody>
-                {filteredLocations.map((location) => (
+                {visibleLocations.map((location) => (
                   <tr
                     key={location.city}
                     className="border-b border-border hover:bg-muted/50 smooth-transition cursor-pointer"

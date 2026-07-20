@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   AlertCircle,
+  Command,
 } from "lucide-react";
 import { Button } from "./ui/button";
 
@@ -29,6 +30,7 @@ const navItems = [
   { icon: FolderOpen, label: "Case Management", path: "/cases" },
   { icon: Archive, label: "Evidence Repository", path: "/evidence" },
   { icon: FileText, label: "Reports", path: "/reports" },
+  { icon: Command, label: "National Command Center", path: "/national-command-center" },
   { icon: BookOpen, label: "Knowledge Base", path: "/knowledge-base" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

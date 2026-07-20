@@ -19,6 +19,7 @@ import Reports from "./pages/Reports";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
+import NationalCommandCenter from "./pages/NationalCommandCenter";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/cases" element={<CaseManagement />} />
             <Route path="/evidence" element={<EvidenceRepository />} />
             <Route path="/reports" element={<Reports />} />
+            <Route path="/national-command-center" element={<NationalCommandCenter />} />
             <Route path="/knowledge-base" element={<KnowledgeBase />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

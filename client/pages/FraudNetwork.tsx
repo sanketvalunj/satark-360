@@ -3,13 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
   CreditCard,
   Smartphone,
   MapPin,
-  Bank,
+  Building2,
   AlertTriangle,
   ArrowRight,
   TrendingUp,
@@ -17,11 +18,13 @@ import {
 
 export default function FraudNetwork() {
   const { graphNodes, graphEdges } = useApp();
+  const navigate = useNavigate();
   const [selectedNode, setSelectedNode] = useState(graphNodes[0]);
 
   const getNodeIcon = (type: string) => {
     switch (type) {
       case "person":
+      case "citizen":
         return <User className="w-4 h-4" />;
       case "phone":
         return <Phone className="w-4 h-4" />;
@@ -32,7 +35,7 @@ export default function FraudNetwork() {
       case "location":
         return <MapPin className="w-4 h-4" />;
       case "bank":
-        return <Bank className="w-4 h-4" />;
+        return <Building2 className="w-4 h-4" />;
       default:
         return <AlertTriangle className="w-4 h-4" />;
     }
@@ -144,7 +147,13 @@ export default function FraudNetwork() {
                             key={node.id}
                             className="absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 hover:scale-110 smooth-transition"
                             style={{ left: `${x}px`, top: `${y}px` }}
-                            onClick={() => setSelectedNode(node)}
+                            onClick={() => {
+                              setSelectedNode(node);
+                              const linkedInvestigation = node.investigationIds[0];
+                              if (linkedInvestigation) {
+                                navigate(`/cases?investigationId=${linkedInvestigation}`);
+                              }
+                            }}
                           >
                             <div
                               className={`w-12 h-12 rounded-full flex items-center justify-center text-white shadow-md ${getNodeColor(node.type).replace(
@@ -345,11 +354,10 @@ export default function FraudNetwork() {
               <div
                 key={node.id}
                 onClick={() => setSelectedNode(node)}
-                className={`p-4 border-2 rounded-lg cursor-pointer smooth-transition ${
-                  selectedNode?.id === node.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary"
-                }`}
+                className={`p-4 border-2 rounded-lg cursor-pointer smooth-transition ${selectedNode?.id === node.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary"
+                  }`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div

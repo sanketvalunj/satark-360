@@ -2,7 +2,9 @@ import { SatarkLayout } from "@/components/SatarkLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
-import { useState } from "react";
+import { AIPipelinePanel } from "@/components/AIPipelinePanel";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   FolderOpen,
   FileText,
@@ -14,15 +16,29 @@ import {
 } from "lucide-react";
 
 export default function CaseManagement() {
-  const { investigations, getEvidenceByCase } = useApp();
-  const [selectedCase, setSelectedCase] = useState(investigations[0]);
+  const { investigations, getEvidenceByCase, getAnalysisSession } = useApp();
+  const [searchParams] = useSearchParams();
+  const selectedInvestigationId = searchParams.get("investigationId");
+  const [selectedCase, setSelectedCase] = useState(
+    investigations.find((inv) => inv.id === selectedInvestigationId) ?? investigations[0]
+  );
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    if (selectedInvestigationId) {
+      const matched = investigations.find((inv) => inv.id === selectedInvestigationId);
+      if (matched) {
+        setSelectedCase(matched);
+      }
+    }
+  }, [investigations, selectedInvestigationId]);
 
   const filteredCases = investigations.filter((inv) =>
     inv.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const evidence = selectedCase ? getEvidenceByCase(selectedCase.id) : [];
+  const analysisSession = selectedCase ? getAnalysisSession(selectedCase.id) : undefined;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -91,11 +107,10 @@ export default function CaseManagement() {
                   <div
                     key={inv.id}
                     onClick={() => setSelectedCase(inv)}
-                    className={`p-3 border rounded-lg cursor-pointer smooth-transition ${
-                      selectedCase?.id === inv.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
+                    className={`p-3 border rounded-lg cursor-pointer smooth-transition ${selectedCase?.id === inv.id
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                      }`}
                   >
                     <p className="font-mono text-xs font-bold text-foreground">
                       {inv.id}
@@ -158,11 +173,11 @@ export default function CaseManagement() {
                       {selectedCase.updatedAt.toLocaleDateString()}
                     </p>
                   </div>
-                  {selectedCase.officer && (
+                  {selectedCase.assignedOfficer && (
                     <div>
                       <p className="text-xs text-muted-foreground">Officer</p>
                       <p className="text-sm font-medium text-foreground">
-                        {selectedCase.officer}
+                        {selectedCase.assignedOfficer}
                       </p>
                     </div>
                   )}
@@ -176,6 +191,10 @@ export default function CaseManagement() {
                   )}
                 </div>
               </Card>
+
+              {analysisSession && (
+                <AIPipelinePanel session={analysisSession} />
+              )}
 
               {/* Complainant Info */}
               {selectedCase.citizenName && (
@@ -258,13 +277,12 @@ export default function CaseManagement() {
                     <div key={idx} className="flex gap-4 relative">
                       <div className="flex flex-col items-center">
                         <div
-                          className={`w-3 h-3 rounded-full ${
-                            event.severity === "critical"
-                              ? "bg-red-500"
-                              : event.severity === "high"
-                                ? "bg-orange-500"
-                                : "bg-blue-500"
-                          }`}
+                          className={`w-3 h-3 rounded-full ${event.severity === "critical"
+                            ? "bg-red-500"
+                            : event.severity === "high"
+                              ? "bg-orange-500"
+                              : "bg-blue-500"
+                            }`}
                         />
                         {idx < selectedCase.timeline.length - 1 && (
                           <div className="w-0.5 h-12 bg-border my-2" />
@@ -286,29 +304,77 @@ export default function CaseManagement() {
                 </div>
               </Card>
 
-              {/* Related Cases */}
-              {selectedCase.relatedCases.length > 0 && (
-                <Card className="p-6">
-                  <h3 className="font-bold text-foreground mb-4">
-                    Related Cases
-                  </h3>
-                  <div className="space-y-2">
-                    {selectedCase.relatedCases.map((relatedId, idx) => {
-                      const relatedCase = investigations.find(
-                        (inv) => inv.id === relatedId
-                      );
-                      return relatedCase ? (
-                        <div
-                          key={idx}
-                          className="p-3 border border-border rounded-lg cursor-pointer hover:border-primary smooth-transition"
-                          onClick={() => setSelectedCase(relatedCase)}
-                        >
-                          <p className="font-mono text-xs font-bold text-primary">
-                            {relatedCase.id}
-                          </p>
+              {/* AI Outputs */}
+              <Card className="p-6">
+                <h3 className="font-bold text-foreground mb-4">AI Outputs</h3>
+                <div className="space-y-3">
+                  {(selectedCase.aiOutputs || []).slice(0, 5).map((output, idx) => (
+                    <div key={`${output.stage}-${idx}`} className="p-3 border border-border rounded-lg bg-muted/20">
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{output.title}</p>
+                          <p className="text-xs text-muted-foreground">{output.stage.replace(/_/g, " ")}</p>
                         </div>
-                      ) : null;
-                    })}
+                        <Badge variant="outline" className="text-xs">{output.confidence}%</Badge>
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed">{output.summary}</p>
+                    </div>
+                  ))}
+                  {(selectedCase.aiOutputs || []).length === 0 && (
+                    <p className="text-sm text-muted-foreground">AI outputs will appear as the pipeline advances.</p>
+                  )}
+                </div>
+              </Card>
+
+              {/* Risk History */}
+              <Card className="p-6">
+                <h3 className="font-bold text-foreground mb-4">Risk History</h3>
+                <div className="space-y-2">
+                  {(selectedCase.riskHistory || []).slice(0, 6).map((risk, idx) => (
+                    <div key={`${risk.investigationId}-${idx}`} className="p-3 border border-border rounded-lg flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{risk.level.toUpperCase()}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{risk.factors.join(", ")}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">{risk.score}%</Badge>
+                    </div>
+                  ))}
+                  {(selectedCase.riskHistory || []).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Risk history will populate after validation and fusion.</p>
+                  )}
+                </div>
+              </Card>
+
+              {/* Officer Notes */}
+              <Card className="p-6">
+                <h3 className="font-bold text-foreground mb-4">Officer Notes</h3>
+                <div className="space-y-2">
+                  {(selectedCase.officerNotes || []).map((note, idx) => (
+                    <div key={idx} className="p-3 rounded-lg bg-muted/20 border border-border text-sm text-foreground">
+                      {note}
+                    </div>
+                  ))}
+                  {(selectedCase.officerNotes || []).length === 0 && (
+                    <p className="text-sm text-muted-foreground">Officer notes will appear when the case becomes investigation ready.</p>
+                  )}
+                </div>
+              </Card>
+
+              {/* Related Entities */}
+              {selectedCase.relatedEntityIds.length > 0 && (
+                <Card className="p-6">
+                  <h3 className="font-bold text-foreground mb-4">Related Entities</h3>
+                  <div className="space-y-2">
+                    {selectedCase.relatedEntityIds.map((relatedId) => (
+                      <div
+                        key={relatedId}
+                        className="p-3 border border-border rounded-lg"
+                      >
+                        <p className="font-mono text-xs font-bold text-primary">
+                          {relatedId}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 </Card>
               )}

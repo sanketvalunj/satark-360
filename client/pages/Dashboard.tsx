@@ -32,7 +32,8 @@ import {
   Eye,
   Phone,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
+import { AIPipelinePanel } from "@/components/AIPipelinePanel";
 
 const chartColors = {
   primary: "hsl(219 68% 45%)",
@@ -73,11 +74,10 @@ const KPICard = ({
     {trend && (
       <div className="flex items-center gap-1 mt-3 text-xs">
         <TrendingUp
-          className={`w-4 h-4 ${
-            trend.direction === "up"
-              ? "text-green-500"
-              : "text-red-500 rotate-180"
-          }`}
+          className={`w-4 h-4 ${trend.direction === "up"
+            ? "text-green-500"
+            : "text-red-500 rotate-180"
+            }`}
         />
         <span
           className={trend.direction === "up" ? "text-green-600" : "text-red-600"}
@@ -109,28 +109,55 @@ const RiskBadge = ({ risk }: { risk: string }) => {
 };
 
 export default function Dashboard() {
-  const { investigations, alerts, getStats, locations } = useApp();
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [caseDistribution, setCaseDistribution] = useState<any[]>([]);
-
+  const { investigations, alerts, analysisSessions, getStats, locations } = useApp();
   const stats = getStats();
+  const activeSession = analysisSessions.find((session) => session.status !== "completed");
+  const sessionConfidenceAverage = useMemo(() => {
+    if (analysisSessions.length === 0) return 0;
+    const total = analysisSessions.reduce((sum, session) => sum + session.confidenceScore, 0);
+    return Math.round(total / analysisSessions.length);
+  }, [analysisSessions]);
+  const averageInvestigationTime = useMemo(() => {
+    const completedSessions = analysisSessions.filter((session) => session.completedAt);
+    if (completedSessions.length === 0) return 0;
+    const totalMinutes = completedSessions.reduce((sum, session) => {
+      if (!session.completedAt) return sum;
+      return sum + (session.completedAt.getTime() - session.createdAt.getTime()) / 60000;
+    }, 0);
+    return Math.round(totalMinutes / completedSessions.length);
+  }, [analysisSessions]);
+  const runningInvestigations = analysisSessions.filter((session) => session.status !== "completed").length;
+  const liveAgents = analysisSessions.reduce((sum, session) => sum + session.runningAgents, 0);
+  const recentAIDecisions = useMemo(() => {
+    return analysisSessions
+      .flatMap((session) =>
+        session.outputs.map((output) => ({
+          ...output,
+          investigationId: session.investigationId,
+        }))
+      )
+      .slice(0, 5);
+  }, [analysisSessions]);
 
-  useEffect(() => {
-    // Generate alert trend data
-    const data = [];
-    for (let i = 6; i >= 0; i--) {
+  const chartData = useMemo(() => {
+    return Array.from({ length: 7 }, (_value, index) => {
       const date = new Date();
-      date.setDate(date.getDate() - i);
-      data.push({
-        date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        alerts: 45 + Math.floor(Math.random() * 30),
-        prevented: 38 + Math.floor(Math.random() * 25),
-      });
-    }
-    setChartData(data);
+      date.setDate(date.getDate() - (6 - index));
+      const dayAlerts = alerts.filter((alert) => {
+        const delta = date.getDate() - new Date(alert.timestamp).getDate();
+        return Math.abs(delta) <= 1;
+      }).length;
 
-    // Generate case distribution
-    const distribution = [
+      return {
+        date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        alerts: dayAlerts + investigations.length + index,
+        prevented: Math.max(0, dayAlerts + index - 1),
+      };
+    });
+  }, [alerts, investigations.length]);
+
+  const caseDistribution = useMemo(
+    () => [
       {
         name: "Digital Arrest",
         value: stats.digitalArrestCases,
@@ -138,7 +165,7 @@ export default function Dashboard() {
       },
       {
         name: "Banking Fraud",
-        value: Math.floor(stats.totalCases * 0.3),
+        value: investigations.filter((inv) => inv.type === "banking_fraud").length,
         color: chartColors.secondary,
       },
       {
@@ -148,12 +175,12 @@ export default function Dashboard() {
       },
       {
         name: "Other Fraud",
-        value: Math.floor(stats.totalCases * 0.2),
+        value: investigations.filter((inv) => inv.type === "other").length,
         color: chartColors.primary,
       },
-    ];
-    setCaseDistribution(distribution);
-  }, [stats]);
+    ],
+    [investigations, stats.counterfeitCases, stats.digitalArrestCases]
+  );
 
   const riskScoreData = [
     { hour: "0h", critical: 12, high: 24, medium: 35, low: 18 },
@@ -181,6 +208,33 @@ export default function Dashboard() {
 
         {/* KPI Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <KPICard
+            title="Active AI Agents"
+            value={liveAgents.toString()}
+            icon={<Activity className="w-6 h-6" />}
+            subtitle="Across active investigations"
+            trend={{ direction: "up", value: 22 }}
+          />
+          <KPICard
+            title="Running Investigations"
+            value={runningInvestigations.toString()}
+            icon={<Eye className="w-6 h-6" />}
+            subtitle="In pipeline"
+            trend={{ direction: "up", value: 14 }}
+          />
+          <KPICard
+            title="Average Investigation Time"
+            value={`${averageInvestigationTime || 0}m`}
+            icon={<Clock className="w-6 h-6" />}
+            subtitle="Completed AI pipeline"
+          />
+          <KPICard
+            title="Average AI Confidence"
+            value={`${sessionConfidenceAverage}%`}
+            icon={<CheckCircle className="w-6 h-6" />}
+            subtitle="Fusion confidence"
+            trend={{ direction: "up", value: 9 }}
+          />
           <KPICard
             title="Total Active Cases"
             value={stats.totalCases.toString()}
@@ -231,6 +285,42 @@ export default function Dashboard() {
             icon={<MapPin className="w-6 h-6" />}
             subtitle="Geographic clusters"
           />
+        </div>
+
+        {/* AI Orchestrator */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AIPipelinePanel session={activeSession} />
+
+          <Card className="p-6 card-hover">
+            <h3 className="text-lg font-bold text-foreground mb-4">
+              Recent AI Decisions
+            </h3>
+            <div className="space-y-3">
+              {recentAIDecisions.length > 0 ? (
+                recentAIDecisions.map((decision) => (
+                  <div
+                    key={`${decision.investigationId}-${decision.title}-${decision.createdAt.getTime()}`}
+                    className="p-3 border border-border rounded-lg bg-muted/20"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <p className="font-semibold text-sm text-foreground">{decision.title}</p>
+                        <p className="text-xs text-muted-foreground">{decision.investigationId}</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">
+                        {decision.confidence}%
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-foreground leading-relaxed">{decision.summary}</p>
+                  </div>
+                ))
+              ) : (
+                <div className="h-36 rounded-lg border border-dashed border-border bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
+                  Waiting for the first AI decision stream
+                </div>
+              )}
+            </div>
+          </Card>
         </div>
 
         {/* Charts Section */}
@@ -532,10 +622,10 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               {[
-                `Investigate ${Math.floor(Math.random() * 25) + 10} new phone numbers linked to digital arrest networks`,
-                `Deploy geospatial intelligence to emerging hotspots in ${locations[Math.floor(Math.random() * locations.length)].city}`,
-                `Cross-reference ${Math.floor(Math.random() * 8) + 1} pending cases with historical fraud templates`,
-                `Prioritize ${stats.digitalArrestCases} counterfeit cases with critical severity this week`,
+                `Investigate ${stats.highRiskAlerts} active high-risk alerts still unresolved`,
+                `Deploy geospatial intelligence to emerging hotspots in ${locations[0]?.city ?? "Mumbai"}`,
+                `Cross-reference ${investigations.length} live cases with historical fraud templates`,
+                `Prioritize ${stats.digitalArrestCases + stats.counterfeitCases} cross-domain investigations this week`,
               ].map((rec, idx) => (
                 <div
                   key={idx}
@@ -553,22 +643,16 @@ export default function Dashboard() {
               Recent Evidence Uploads
             </h3>
             <div className="space-y-2">
-              {[
-                { name: "Call_Recording_INV2024001.wav", time: "5 mins ago" },
-                { name: "Currency_Image_Analysis.pdf", time: "12 mins ago" },
-                { name: "UPI_Transaction_Graph.json", time: "28 mins ago" },
-                { name: "Location_Heatmap_Data.geojson", time: "1 hour ago" },
-                { name: "Voice_Transcript_Call_01.txt", time: "2 hours ago" },
-              ].map((ev, idx) => (
+              {alerts.slice(0, 5).map((alert) => (
                 <div
-                  key={idx}
+                  key={alert.id}
                   className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 smooth-transition cursor-pointer"
                 >
                   <span className="text-sm text-foreground truncate">
-                    {ev.name}
+                    {alert.title}
                   </span>
                   <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
-                    {ev.time}
+                    {alert.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
               ))}

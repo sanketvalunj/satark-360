@@ -2,7 +2,9 @@ import { SatarkLayout } from "@/components/SatarkLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { InvestigationService } from "@/services/investigationService";
+import { AIPipelinePanel } from "@/components/AIPipelinePanel";
 import {
   Phone,
   Pause,
@@ -17,6 +19,7 @@ import {
   MapPin,
   CheckCircle,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CallSession {
   id: string;
@@ -32,11 +35,19 @@ interface CallSession {
 }
 
 export default function DigitalArrest() {
-  const { investigations } = useApp();
+  const { investigations, analysisSessions, getAnalysisSession } = useApp();
   const [activeSessions, setActiveSessions] = useState<CallSession[]>([]);
   const [selectedSession, setSelectedSession] = useState<CallSession | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [isCreatingCase, setIsCreatingCase] = useState(false);
+  const [analysisInvestigationId, setAnalysisInvestigationId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+
+  const activePipelineSession = useMemo(
+    () => analysisInvestigationId ? getAnalysisSession(analysisInvestigationId) : analysisSessions.find((session) => session.status !== "completed"),
+    [analysisInvestigationId, analysisSessions, getAnalysisSession]
+  );
 
   useEffect(() => {
     // Simulate active monitoring sessions
@@ -131,38 +142,38 @@ Caller: "From court registry. We need bank details to proceed with the case clos
 
   const riskMetrics = selectedSession
     ? [
-        {
-          label: "Government Impersonation",
-          value: selectedSession.governmentImpersonation ? "Detected" : "None",
-          severity: selectedSession.governmentImpersonation ? "critical" : "low",
-        },
-        {
-          label: "Threat Level",
-          value: `${selectedSession.riskScore}%`,
-          severity:
-            selectedSession.riskScore > 85
-              ? "critical"
-              : selectedSession.riskScore > 60
-                ? "high"
-                : "medium",
-        },
-        {
-          label: "Psychological Pressure",
-          value: selectedSession.keywords.includes("urgent") ? "Detected" : "None",
-          severity: selectedSession.keywords.includes("urgent")
-            ? "high"
-            : "low",
-        },
-        {
-          label: "Money Demand",
-          value: selectedSession.keywords.includes("transfer")
-            ? "Detected"
-            : "None",
-          severity: selectedSession.keywords.includes("transfer")
+      {
+        label: "Government Impersonation",
+        value: selectedSession.governmentImpersonation ? "Detected" : "None",
+        severity: selectedSession.governmentImpersonation ? "critical" : "low",
+      },
+      {
+        label: "Threat Level",
+        value: `${selectedSession.riskScore}%`,
+        severity:
+          selectedSession.riskScore > 85
             ? "critical"
-            : "low",
-        },
-      ]
+            : selectedSession.riskScore > 60
+              ? "high"
+              : "medium",
+      },
+      {
+        label: "Psychological Pressure",
+        value: selectedSession.keywords.includes("urgent") ? "Detected" : "None",
+        severity: selectedSession.keywords.includes("urgent")
+          ? "high"
+          : "low",
+      },
+      {
+        label: "Money Demand",
+        value: selectedSession.keywords.includes("transfer")
+          ? "Detected"
+          : "None",
+        severity: selectedSession.keywords.includes("transfer")
+          ? "critical"
+          : "low",
+      },
+    ]
     : [];
 
   const getSeverityColor = (severity: string) => {
@@ -175,6 +186,25 @@ Caller: "From court registry. We need bank details to proceed with the case clos
         return "bg-yellow-100 text-yellow-800 border-yellow-300";
       default:
         return "bg-blue-100 text-blue-800 border-blue-300";
+    }
+  };
+
+  const createInvestigationFromSession = async () => {
+    if (!selectedSession) return;
+
+    setIsCreatingCase(true);
+    setStatusMessage("Call transcript received. Speech, caller, graph, and geo agents are starting.");
+    try {
+      const result = await InvestigationService.analyzeDigitalArrest({
+        callerId: selectedSession.callerId,
+        recipientName: selectedSession.recipientName,
+        transcript: selectedSession.transcript,
+        keywords: selectedSession.keywords,
+      });
+      setAnalysisInvestigationId(result.investigation.id);
+      setStatusMessage("AI orchestration is coordinating parallel agents and cross-intelligence correlation.");
+    } finally {
+      setIsCreatingCase(false);
     }
   };
 
@@ -236,6 +266,25 @@ Caller: "From court registry. We need bank details to proceed with the case clos
                 </div>
               </div>
 
+              <Button
+                onClick={createInvestigationFromSession}
+                disabled={isCreatingCase}
+                className="mb-6 bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30"
+              >
+                {isCreatingCase ? "Creating Investigation..." : "Create Investigation From Call"}
+              </Button>
+
+              {statusMessage && (
+                <Card className="mb-6 p-4 border-dashed border-border bg-muted/20">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Live Status
+                  </p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {statusMessage}
+                  </p>
+                </Card>
+              )}
+
               {/* Transcript */}
               <div className="bg-muted rounded-lg p-4 h-48 overflow-y-auto">
                 <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
@@ -295,6 +344,8 @@ Caller: "From court registry. We need bank details to proceed with the case clos
               </div>
             </Card>
 
+            {activePipelineSession && <AIPipelinePanel session={activePipelineSession} compact />}
+
             {/* Detected Keywords */}
             <Card className="p-6">
               <p className="text-sm font-medium text-foreground mb-4">
@@ -304,11 +355,10 @@ Caller: "From court registry. We need bank details to proceed with the case clos
                 {selectedSession?.keywords.map((keyword, idx) => (
                   <Badge
                     key={idx}
-                    className={`text-xs ${
-                      getKeywordSeverity(keyword) === "critical"
-                        ? "bg-red-100 text-red-800"
-                        : "bg-orange-100 text-orange-800"
-                    }`}
+                    className={`text-xs ${getKeywordSeverity(keyword) === "critical"
+                      ? "bg-red-100 text-red-800"
+                      : "bg-orange-100 text-orange-800"
+                      }`}
                   >
                     {keyword}
                   </Badge>
@@ -328,11 +378,10 @@ Caller: "From court registry. We need bank details to proceed with the case clos
               <div
                 key={session.id}
                 onClick={() => setSelectedSession(session)}
-                className={`p-4 border rounded-lg cursor-pointer smooth-transition ${
-                  selectedSession?.id === session.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                }`}
+                className={`p-4 border rounded-lg cursor-pointer smooth-transition ${selectedSession?.id === session.id
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+                  }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -410,13 +459,12 @@ Caller: "From court registry. We need bank details to proceed with the case clos
               <div key={idx} className="flex gap-4 items-start">
                 <div className="flex flex-col items-center">
                   <div
-                    className={`w-3 h-3 rounded-full ${
-                      item.type === "critical"
-                        ? "bg-red-500"
-                        : item.type === "threat"
-                          ? "bg-orange-500"
-                          : "bg-blue-500"
-                    }`}
+                    className={`w-3 h-3 rounded-full ${item.type === "critical"
+                      ? "bg-red-500"
+                      : item.type === "threat"
+                        ? "bg-orange-500"
+                        : "bg-blue-500"
+                      }`}
                   />
                   {idx < 3 && (
                     <div className="w-0.5 h-12 bg-border mt-2" />

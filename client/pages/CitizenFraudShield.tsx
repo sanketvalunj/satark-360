@@ -3,7 +3,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useApp } from "@/context/AppContext";
-import { useState, useRef, useEffect } from "react";
+import { AIPipelinePanel } from "@/components/AIPipelinePanel";
+import { InvestigationService } from "@/services/investigationService";
+import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Send,
   Upload,
@@ -35,7 +37,7 @@ interface CaseState {
 }
 
 export default function CitizenFraudShield() {
-  const { createInvestigation, addEvidence } = useApp();
+  const { createInvestigation, addEvidence, analysisSessions, getAnalysisSession } = useApp();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -56,7 +58,14 @@ export default function CitizenFraudShield() {
   });
 
   const [showSidebar, setShowSidebar] = useState(true);
+  const [submittedInvestigationId, setSubmittedInvestigationId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const activeSession = useMemo(
+    () => submittedInvestigationId ? getAnalysisSession(submittedInvestigationId) : analysisSessions.find((session) => session.status !== "completed"),
+    [analysisSessions, getAnalysisSession, submittedInvestigationId]
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -202,13 +211,14 @@ export default function CitizenFraudShield() {
     setAttachments((prev) => [...prev, newAttachment]);
   };
 
-  const handleSubmitCase = () => {
+  const handleSubmitCase = async () => {
     if (caseState.riskScore === 0) {
-      alert("Please describe your issue first to create a case");
+      setStatusMessage("Describe the issue first so the AI pipeline can start.");
       return;
     }
 
-    const investigation = createInvestigation({
+    setStatusMessage("Creating investigation and starting AI pipeline...");
+    const investigation = await createInvestigation({
       type: caseState.scamType as any,
       status: "active",
       riskLevel:
@@ -217,36 +227,28 @@ export default function CitizenFraudShield() {
           : caseState.riskScore > 70
             ? "high"
             : "medium",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      title: "Citizen Fraud Complaint",
       citizenName: "Anonymous Citizen",
       description: messages
         .filter((m) => m.type === "user")
         .map((m) => m.content)
         .join(" "),
-      evidence: [],
-      timeline: [
-        {
-          timestamp: new Date(),
-          type: "complaint_filed",
-          description: "Case created via Fraud Shield",
-          severity: caseState.riskScore > 80 ? "high" : "medium",
-        },
-      ],
-      relatedCases: [],
     });
 
-    // Add evidence to case
-    attachments.forEach((att) => {
-      addEvidence(investigation.id, {
-        type: att.type as any,
-        name: att.name,
-        uploadedAt: new Date(),
-        size: Math.floor(Math.random() * 5000000) + 100000,
-      });
-    });
+    setSubmittedInvestigationId(investigation.id);
 
-    alert(`Case created: ${investigation.id}\n\nYour complaint has been registered and assigned to investigation officers. You will receive updates on your mobile number.`);
+    // Add evidence to the created case
+    await Promise.all(
+      attachments.map((att) =>
+        addEvidence(investigation.id, {
+          type: att.type as any,
+          name: att.name,
+          size: Math.floor(Math.random() * 5000000) + 100000,
+        })
+      )
+    );
+
+    setStatusMessage(`Investigation ${investigation.id} is now running through the AI pipeline.`);
   };
 
   return (
@@ -285,11 +287,10 @@ export default function CitizenFraudShield() {
                   className={`flex ${msg.type === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-xl ${
-                      msg.type === "user"
-                        ? "bg-gradient-to-r from-primary to-secondary text-white rounded-2xl rounded-tr-none"
-                        : "bg-muted rounded-2xl rounded-tl-none"
-                    } p-4`}
+                    className={`max-w-xl ${msg.type === "user"
+                      ? "bg-gradient-to-r from-primary to-secondary text-white rounded-2xl rounded-tr-none"
+                      : "bg-muted rounded-2xl rounded-tl-none"
+                      } p-4`}
                   >
                     <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
 
@@ -298,11 +299,10 @@ export default function CitizenFraudShield() {
                         {msg.attachments.map((att, idx) => (
                           <div
                             key={idx}
-                            className={`text-xs p-2 rounded flex items-center gap-2 ${
-                              msg.type === "user"
-                                ? "bg-white/20"
-                                : "bg-white/50"
-                            }`}
+                            className={`text-xs p-2 rounded flex items-center gap-2 ${msg.type === "user"
+                              ? "bg-white/20"
+                              : "bg-white/50"
+                              }`}
                           >
                             <Upload className="w-3 h-3" />
                             {att.name}
@@ -312,9 +312,8 @@ export default function CitizenFraudShield() {
                     )}
 
                     <p
-                      className={`text-xs mt-2 opacity-70 ${
-                        msg.type === "user" ? "text-white" : "text-muted-foreground"
-                      }`}
+                      className={`text-xs mt-2 opacity-70 ${msg.type === "user" ? "text-white" : "text-muted-foreground"
+                        }`}
                     >
                       {msg.timestamp.toLocaleTimeString()}
                     </p>
@@ -413,6 +412,19 @@ export default function CitizenFraudShield() {
           {/* Analysis Sidebar */}
           {showSidebar && (
             <div className="hidden lg:flex lg:w-80 flex-col gap-4">
+              <AIPipelinePanel session={activeSession} compact />
+
+              {statusMessage && (
+                <Card className="p-4">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">
+                    Live Status
+                  </p>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {statusMessage}
+                  </p>
+                </Card>
+              )}
+
               {/* Risk Score */}
               <Card className="p-4">
                 <div className="mb-3">
@@ -442,13 +454,12 @@ export default function CitizenFraudShield() {
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${
-                      caseState.riskScore > 80
-                        ? "bg-red-500"
-                        : caseState.riskScore > 50
-                          ? "bg-orange-500"
-                          : "bg-blue-500"
-                    }`}
+                    className={`h-2 rounded-full transition-all ${caseState.riskScore > 80
+                      ? "bg-red-500"
+                      : caseState.riskScore > 50
+                        ? "bg-orange-500"
+                        : "bg-blue-500"
+                      }`}
                     style={{ width: `${caseState.riskScore}%` }}
                   />
                 </div>
