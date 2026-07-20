@@ -1,27 +1,36 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Home, ArrowLeft } from "lucide-react";
 
-const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error(
-      "404 Error: User attempted to access non-existent route:",
-      location.pathname,
-    );
-  }, [location.pathname]);
-
+export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 flex items-center justify-center p-4">
+      <Card className="max-w-md w-full p-8 text-center">
+        <div className="mb-6">
+          <h1 className="text-6xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            404
+          </h1>
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2">
+          Page Not Found
+        </h2>
+        <p className="text-muted-foreground mb-8">
+          The module you're looking for doesn't exist or hasn't been implemented yet.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Link to="/" className="flex-1">
+            <Button className="w-full bg-gradient-to-r from-primary to-secondary hover:shadow-lg hover:shadow-primary/30">
+              <Home className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+          </Link>
+          <Button variant="outline" className="flex-1">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Go Back
+          </Button>
+        </div>
+      </Card>
     </div>
   );
-};
-
-export default NotFound;
+}
