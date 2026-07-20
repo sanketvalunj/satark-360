@@ -1,6 +1,7 @@
 import { SatarkLayout } from "@/components/SatarkLayout";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useApp } from "@/context/AppContext";
 import {
   AreaChart,
   Area,
@@ -31,6 +32,7 @@ import {
   Eye,
   Phone,
 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const chartColors = {
   primary: "hsl(219 68% 45%)",
@@ -39,97 +41,6 @@ const chartColors = {
   danger: "hsl(0 84% 60%)",
   warning: "hsl(38 92% 50%)",
 };
-
-// Mock data
-const alertTrendData = [
-  { date: "Jan 1", alerts: 45, prevented: 38 },
-  { date: "Jan 2", alerts: 52, prevented: 44 },
-  { date: "Jan 3", alerts: 48, prevented: 42 },
-  { date: "Jan 4", alerts: 61, prevented: 54 },
-  { date: "Jan 5", alerts: 55, prevented: 48 },
-  { date: "Jan 6", alerts: 67, prevented: 59 },
-  { date: "Jan 7", alerts: 72, prevented: 65 },
-];
-
-const caseDistributionData = [
-  { name: "Digital Arrest", value: 320, color: chartColors.danger },
-  { name: "Counterfeit", value: 185, color: chartColors.warning },
-  { name: "Banking Fraud", value: 260, color: chartColors.secondary },
-  { name: "Other Fraud", value: 135, color: chartColors.primary },
-];
-
-const riskScoreData = [
-  { hour: "0h", critical: 12, high: 24, medium: 35, low: 18 },
-  { hour: "4h", critical: 15, high: 28, medium: 32, low: 15 },
-  { hour: "8h", critical: 18, high: 32, medium: 28, low: 12 },
-  { hour: "12h", critical: 21, high: 35, medium: 25, low: 10 },
-  { hour: "16h", critical: 19, high: 33, medium: 30, low: 13 },
-  { hour: "20h", critical: 16, high: 29, medium: 34, low: 16 },
-];
-
-const recentInvestigations = [
-  {
-    id: "INV-2024-0001",
-    type: "Digital Arrest",
-    risk: "Critical",
-    status: "Active",
-  },
-  {
-    id: "INV-2024-0002",
-    type: "Banking Fraud",
-    risk: "High",
-    status: "Review",
-  },
-  {
-    id: "INV-2024-0003",
-    type: "Counterfeit Detection",
-    risk: "Medium",
-    status: "Analysis",
-  },
-  {
-    id: "INV-2024-0004",
-    type: "Fraud Network",
-    risk: "Critical",
-    status: "Active",
-  },
-  {
-    id: "INV-2024-0005",
-    type: "Digital Arrest",
-    risk: "High",
-    status: "Review",
-  },
-];
-
-const liveAlerts = [
-  {
-    id: 1,
-    title: "Suspicious Call Pattern Detected",
-    description: "High frequency calls detected from 3 numbers to single recipient",
-    time: "2 mins ago",
-    risk: "critical",
-  },
-  {
-    id: 2,
-    title: "Counterfeit Currency Identified",
-    description: "RBI template mismatch detected in uploaded currency image",
-    time: "8 mins ago",
-    risk: "high",
-  },
-  {
-    id: 3,
-    title: "Network Anomaly Detected",
-    description: "New UPI-based money transfer network identified",
-    time: "15 mins ago",
-    risk: "high",
-  },
-  {
-    id: 4,
-    title: "Crime Hotspot Emerging",
-    description: "Spike in fraud complaints in Mumbai Metropolitan Region",
-    time: "22 mins ago",
-    risk: "medium",
-  },
-];
 
 const KPICard = ({
   title,
@@ -198,6 +109,63 @@ const RiskBadge = ({ risk }: { risk: string }) => {
 };
 
 export default function Dashboard() {
+  const { investigations, alerts, getStats, locations } = useApp();
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [caseDistribution, setCaseDistribution] = useState<any[]>([]);
+
+  const stats = getStats();
+
+  useEffect(() => {
+    // Generate alert trend data
+    const data = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      data.push({
+        date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        alerts: 45 + Math.floor(Math.random() * 30),
+        prevented: 38 + Math.floor(Math.random() * 25),
+      });
+    }
+    setChartData(data);
+
+    // Generate case distribution
+    const distribution = [
+      {
+        name: "Digital Arrest",
+        value: stats.digitalArrestCases,
+        color: chartColors.danger,
+      },
+      {
+        name: "Banking Fraud",
+        value: Math.floor(stats.totalCases * 0.3),
+        color: chartColors.secondary,
+      },
+      {
+        name: "Counterfeit",
+        value: stats.counterfeitCases,
+        color: chartColors.warning,
+      },
+      {
+        name: "Other Fraud",
+        value: Math.floor(stats.totalCases * 0.2),
+        color: chartColors.primary,
+      },
+    ];
+    setCaseDistribution(distribution);
+  }, [stats]);
+
+  const riskScoreData = [
+    { hour: "0h", critical: 12, high: 24, medium: 35, low: 18 },
+    { hour: "4h", critical: 15, high: 28, medium: 32, low: 15 },
+    { hour: "8h", critical: 18, high: 32, medium: 28, low: 12 },
+    { hour: "12h", critical: 21, high: 35, medium: 25, low: 10 },
+    { hour: "16h", critical: 19, high: 33, medium: 30, low: 13 },
+    { hour: "20h", critical: 16, high: 29, medium: 34, low: 16 },
+  ];
+
+  const recentInvestigations = investigations.slice(0, 5);
+
   return (
     <SatarkLayout>
       <div className="p-6 md:p-8 space-y-8">
@@ -215,28 +183,28 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPICard
             title="Total Active Cases"
-            value="1,247"
+            value={stats.totalCases.toString()}
             icon={<Lock className="w-6 h-6" />}
             subtitle="Across all modules"
             trend={{ direction: "up", value: 12 }}
           />
           <KPICard
             title="High Risk Alerts"
-            value="89"
+            value={stats.highRiskAlerts.toString()}
             icon={<AlertTriangle className="w-6 h-6" />}
             subtitle="Last 24 hours"
             trend={{ direction: "down", value: 8 }}
           />
           <KPICard
             title="Frauds Prevented"
-            value="645"
+            value={stats.fraudsPrevented.toString()}
             icon={<CheckCircle className="w-6 h-6" />}
             subtitle="This month"
             trend={{ direction: "up", value: 24 }}
           />
           <KPICard
             title="Network Nodes"
-            value="3,421"
+            value={stats.networkNodes.toString()}
             icon={<Network className="w-6 h-6" />}
             subtitle="Active entities mapped"
             trend={{ direction: "up", value: 18 }}
@@ -247,19 +215,19 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <KPICard
             title="Digital Arrest Cases"
-            value="342"
+            value={stats.digitalArrestCases.toString()}
             icon={<Phone className="w-6 h-6" />}
             subtitle="Active investigations"
           />
           <KPICard
             title="Counterfeit Detected"
-            value="156"
+            value={stats.counterfeitCases.toString()}
             icon={<Banknote className="w-6 h-6" />}
             subtitle="Currency validations"
           />
           <KPICard
             title="Crime Hotspots"
-            value="24"
+            value={stats.hotspots.toString()}
             icon={<MapPin className="w-6 h-6" />}
             subtitle="Geographic clusters"
           />
@@ -278,7 +246,7 @@ export default function Dashboard() {
               </p>
             </div>
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={alertTrendData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorAlerts" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartColors.danger} stopOpacity={0.3} />
@@ -359,7 +327,7 @@ export default function Dashboard() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={caseDistributionData}
+                  data={caseDistribution}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -367,7 +335,7 @@ export default function Dashboard() {
                   paddingAngle={2}
                   dataKey="value"
                 >
-                  {caseDistributionData.map((entry, index) => (
+                  {caseDistribution.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -381,7 +349,7 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
             <div className="mt-4 space-y-2">
-              {caseDistributionData.map((item, idx) => (
+              {caseDistribution.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
                     <div
@@ -477,12 +445,12 @@ export default function Dashboard() {
                 </h3>
               </div>
               <Badge variant="outline" className="bg-red-50">
-                {liveAlerts.length} Active
+                {alerts.length} Active
               </Badge>
             </div>
 
             <div className="space-y-3">
-              {liveAlerts.map((alert) => (
+              {alerts.slice(0, 4).map((alert) => (
                 <div
                   key={alert.id}
                   className="p-4 border border-border rounded-lg hover:bg-muted/50 smooth-transition group cursor-pointer"
@@ -492,9 +460,9 @@ export default function Dashboard() {
                       className="w-2 h-2 mt-1 rounded-full flex-shrink-0"
                       style={{
                         backgroundColor:
-                          alert.risk === "critical"
+                          alert.severity === "critical"
                             ? chartColors.danger
-                            : alert.risk === "high"
+                            : alert.severity === "high"
                               ? chartColors.warning
                               : chartColors.primary,
                       }}
@@ -507,7 +475,10 @@ export default function Dashboard() {
                         {alert.description}
                       </p>
                       <p className="text-xs text-muted-foreground/60 mt-2">
-                        {alert.time}
+                        {Math.floor(
+                          (Date.now() - alert.timestamp.getTime()) / 60000
+                        )}{" "}
+                        mins ago
                       </p>
                     </div>
                   </div>
@@ -523,7 +494,7 @@ export default function Dashboard() {
                 <Eye className="w-5 h-5 text-secondary" />
                 Recent Investigations
               </h3>
-              <Badge variant="outline">5 Cases</Badge>
+              <Badge variant="outline">{investigations.length} Cases</Badge>
             </div>
 
             <div className="space-y-2">
@@ -537,13 +508,13 @@ export default function Dashboard() {
                       {inv.id}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {inv.type}
+                      {inv.type.replace(/_/g, " ")}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <RiskBadge risk={inv.risk.toLowerCase()} />
+                    <RiskBadge risk={inv.riskLevel} />
                     <Badge variant="secondary" className="text-xs">
-                      {inv.status}
+                      {inv.status.charAt(0).toUpperCase() + inv.status.slice(1)}
                     </Badge>
                   </div>
                 </div>
@@ -561,10 +532,10 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-3">
               {[
-                "Investigate 23 new phone numbers linked to digital arrest networks",
-                "Deploy geospatial intelligence to emerging hotspots in Delhi NCR",
-                "Cross-reference 5 pending cases with historical fraud templates",
-                "Prioritize counterfeit cases with critical severity this week",
+                `Investigate ${Math.floor(Math.random() * 25) + 10} new phone numbers linked to digital arrest networks`,
+                `Deploy geospatial intelligence to emerging hotspots in ${locations[Math.floor(Math.random() * locations.length)].city}`,
+                `Cross-reference ${Math.floor(Math.random() * 8) + 1} pending cases with historical fraud templates`,
+                `Prioritize ${stats.digitalArrestCases} counterfeit cases with critical severity this week`,
               ].map((rec, idx) => (
                 <div
                   key={idx}
