@@ -7,11 +7,8 @@ import type { Location } from "@/engine/types";
 import { useMemo, useState } from "react";
 import {
   MapPin,
-  Filter,
   TrendingUp,
   AlertTriangle,
-  BarChart3,
-  Clock,
 } from "lucide-react";
 
 type HeatmapHotspot = {
