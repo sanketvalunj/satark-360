@@ -22,6 +22,7 @@ import {
   CardContent,
   CardFooter,
   CardHeader,
+  CardDescription,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -328,7 +329,7 @@ export default function Reports() {
                 <p className="text-sm font-semibold text-foreground">Investigation List</p>
                 <p className="text-xs text-muted-foreground">Select a case to load the report preview.</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {[
                   "All",
                   "Draft",

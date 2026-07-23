@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import {
   Archive,
   ArrowUpRight,
+  Mic as AudioIcon,
   Mic,
   Camera,
   Download,
@@ -293,7 +294,7 @@ export default function EvidenceRepository() {
                         <div className="flex h-16 w-16 items-center justify-center rounded-3xl border border-border bg-muted">
                           {item.type === "image" ? <Image className="h-7 w-7 text-violet-600" /> : null}
                           {item.type === "video" ? <Film className="h-7 w-7 text-sky-600" /> : null}
-                          {item.type === "audio" ? <Audio className="h-7 w-7 text-emerald-600" /> : null}
+                          {item.type === "audio" ? <AudioIcon className="h-7 w-7 text-emerald-600" /> : null}
                           {item.type === "pdf" ? <FileArchive className="h-7 w-7 text-orange-600" /> : null}
                           {item.type === "text" ? <FileText className="h-7 w-7 text-slate-600" /> : null}
                         </div>
@@ -424,7 +425,7 @@ export default function EvidenceRepository() {
                       ) : selectedEvidence.type === "video" ? (
                         <Film className="h-12 w-12 text-sky-600" />
                       ) : selectedEvidence.type === "audio" ? (
-                        <Audio className="h-12 w-12 text-emerald-600" />
+                        <AudioIcon className="h-12 w-12 text-emerald-600" />
                       ) : selectedEvidence.type === "pdf" ? (
                         <FileArchive className="h-12 w-12 text-orange-600" />
                       ) : (
